@@ -1,0 +1,25 @@
+apiVersion: config.openshift.io/v1
+kind: Network
+metadata:
+  creationTimestamp: "2023-11-22T01:30:35Z"
+  generation: 6
+  name: cluster
+  resourceVersion: "1583442"
+  uid: 09c0618c-2167-428a-abfe-496d4663c5af
+spec:
+  clusterNetwork:
+  - cidr: 10.217.0.0/22
+    hostPrefix: 23
+  externalIP:
+    policy: {}
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - 10.217.4.0/23
+status:
+  clusterNetwork:
+  - cidr: 10.217.0.0/22
+    hostPrefix: 23
+  clusterNetworkMTU: 1400
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - 10.217.4.0/23
