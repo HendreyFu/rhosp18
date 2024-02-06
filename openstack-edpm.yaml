@@ -1,0 +1,151 @@
+apiVersion: dataplane.openstack.org/v1beta1
+kind: OpenStackDataPlaneNodeSet
+metadata:
+  name: openstack-edpm-ipam
+spec:
+  env:
+    - name: ANSIBLE_FORCE_COLOR
+      value: "True"
+    - name: ANSIBLE_ENABLE_TASK_DEBUGGER
+      value: "True"
+    - name: ANSIBLE_KEEP_REMOTE_FILES
+      value: "True"
+    - name: ANSIBLE_VERBOSITY
+      value: "4"
+  preProvisioned: true
+  services:
+    - configure-network
+    - validate-network
+    - install-os
+    - ceph-hci-pre
+    - configure-os
+    - run-os
+    - ceph-client
+    - ovn
+    - libvirt
+    - nova
+    - telemetry
+  nodes:
+      edpm-compute-0:
+        hostName: edpm-compute-0
+        ansible:
+          ansibleHost: 192.168.122.100
+        networks:
+        - name: CtlPlane
+          subnetName: subnet1
+          defaultRoute: true
+          fixedIP: 192.168.122.100
+        - name: InternalApi
+          subnetName: subnet1
+        - name: Storage
+          subnetName: subnet1
+        - name: StorageMgmt
+          subnetName: subnet1
+          fixedIP: 172.20.0.100
+        - name: Tenant
+          subnetName: subnet1
+  networkAttachments:
+    - ctlplane
+  nodeTemplate:
+    ansibleSSHPrivateKeySecret: kiosk-osp-ssh-key
+    managementNetwork: ctlplane
+    ansible:
+      ansibleUser: cloud-admin
+      ansiblePort: 22
+      ansibleVars:
+         ctlplane_dns_nameservers:
+         - 192.168.122.1
+         ctlplane_gateway_ip: 192.168.122.1
+         ctlplane_host_routes:
+         - ip_netmask: 0.0.0.0/0
+           next_hop: 192.168.122.1
+         external_cidr: "24"
+         external_host_routes:
+         - ip_netmask: 192.168.1.0/24
+           next_hop: 192.168.130.1
+         external_mtu: 1500
+         service_net_map:
+           nova_api_network: internal_api
+           nova_libvirt_network: internal_api
+         edpm_bootstrap_command: |
+           podman login -u Hendrey_Fu@dell.com -p FuHendrey123456 registry.redhat.io
+         edpm_chrony_ntp_servers:
+           - pool.ntp.org
+         # edpm_network_config
+         # Default nic config template for a EDPM compute node
+         # These vars are edpm_network_config role vars
+         edpm_network_config_template: |
+              ---
+              {% set mtu_list = [ctlplane_mtu] %}
+              {% for network in role_networks %}
+              {{ mtu_list.append(lookup('vars', networks_lower[network] ~ '_mtu')) }}
+              {%- endfor %}
+              {% set min_viable_mtu = mtu_list | max %}
+              network_config:
+              - type: ovs_bridge
+                name: {{ neutron_physical_bridge_name }}
+                mtu: {{ min_viable_mtu }}
+                use_dhcp: false
+                dns_servers: {{ ctlplane_dns_nameservers }}
+                domain: {{ dns_search_domains }}
+                addresses:
+                - ip_netmask: {{ ctlplane_ip }}/{{ ctlplane_subnet_cidr }}
+                routes: {{ ctlplane_host_routes }}
+                members:
+                - type: interface
+                  name: nic1
+                  mtu: {{ min_viable_mtu }}
+                  # force the MAC address of the bridge to this interface
+                  primary: true
+              {% for network in role_networks %}
+                - type: vlan
+                  mtu: {{ lookup('vars', networks_lower[network] ~ '_mtu') }}
+                  vlan_id: {{ lookup('vars', networks_lower[network] ~ '_vlan_id') }}
+                  addresses:
+                  - ip_netmask:
+                      {{ lookup('vars', networks_lower[network] ~ '_ip') }}/{{ lookup('vars', networks_lower[network] ~ '_cidr') }}
+                  routes: {{ lookup('vars', networks_lower[network] ~ '_host_routes') }}
+              {% endfor %}
+         edpm_network_config_hide_sensitive_logs: false
+         # These vars are for the network config templates themselves and are
+         # considered EDPM network defaults.
+         neutron_physical_bridge_name: br-ex
+         neutron_public_interface_name: eth0
+         role_networks:
+         - InternalApi
+         - Storage
+         - StorageMgmt
+         - Tenant
+         - External
+         networks_lower:
+           InternalApi: internal_api
+           Storage: storage
+           StorageMgmt: storagemgmt
+           Tenant: tenant
+           External: external
+         # edpm_nodes_validation
+         edpm_nodes_validation_validate_controllers_icmp: false
+         edpm_nodes_validation_validate_gateway_icmp: false
+         gather_facts: false
+         enable_debug: false
+         # edpm firewall, change the allowed CIDR if needed
+         edpm_sshd_configure_firewall: true
+         edpm_sshd_allowed_ranges: ['192.168.122.0/24', '192.168.1.0/24', '192.168.130.0/24', '10.255.255.0/24']
+         edpm_ceph_hci_pre_enabled_services:
+         - ceph_mon
+         - ceph_mgr
+         - ceph_osd
+         - ceph_mds
+         - ceph_nfs
+         - ceph_nfs_frontend
+         - ceph_rgw
+         - ceph_rgw_frontend
+         - ceph_dashboard
+         - ceph_grafana
+         - ceph_prometheus
+         # SELinux module
+         storagemgmt_mtu: 1500
+         storagemgmt_vlan_id: 23
+         storagemgmt_cidr: 24
+         storagemgmt_host_routes: []
+         edpm_selinux_mode: Permissive

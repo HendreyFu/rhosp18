@@ -1,0 +1,143 @@
+apiVersion: v1
+items:
+- apiVersion: kubevirt.io/v1
+  kind: VirtualMachine
+  metadata:
+    annotations:
+      kubevirt.io/latest-observed-api-version: v1
+      kubevirt.io/storage-observed-api-version: v1
+      vm.kubevirt.io/validations: |
+        [
+          {
+            "name": "minimal-required-memory",
+            "path": "jsonpath::.spec.domain.memory.guest",
+            "rule": "integer",
+            "message": "This VM requires more memory.",
+            "min": 1610612736
+          }
+        ]
+    creationTimestamp: "2023-11-21T13:30:01Z"
+    finalizers:
+    - kubevirt.io/virtualMachineControllerFinalize
+    generation: 1
+    labels:
+      app: rhel9-secret-blackbird
+      kubevirt.io/dynamic-credentials-support: "true"
+      vm.kubevirt.io/template: rhel9-server-small
+      vm.kubevirt.io/template.namespace: openshift
+      vm.kubevirt.io/template.revision: "1"
+      vm.kubevirt.io/template.version: v0.26.0
+    name: rhel9-secret-blackbird
+    namespace: default
+    resourceVersion: "77018"
+    uid: 13cd6a27-4a58-44cf-a2d2-eff112e9a75d
+  spec:
+    dataVolumeTemplates:
+    - apiVersion: cdi.kubevirt.io/v1beta1
+      kind: DataVolume
+      metadata:
+        creationTimestamp: null
+        name: rhel9-secret-blackbird
+      spec:
+        sourceRef:
+          kind: DataSource
+          name: rhel9
+          namespace: openshift-virtualization-os-images
+        storage:
+          resources:
+            requests:
+              storage: 30Gi
+    running: true
+    template:
+      metadata:
+        annotations:
+          vm.kubevirt.io/flavor: small
+          vm.kubevirt.io/os: rhel9
+          vm.kubevirt.io/workload: server
+        creationTimestamp: null
+        labels:
+          kubevirt.io/domain: rhel9-secret-blackbird
+          kubevirt.io/size: small
+      spec:
+        architecture: amd64
+        domain:
+          cpu:
+            cores: 1
+            sockets: 1
+            threads: 1
+          devices:
+            disks:
+            - disk:
+                bus: virtio
+              name: rootdisk
+            - disk:
+                bus: virtio
+              name: cloudinitdisk
+            interfaces:
+            - macAddress: 02:f1:d2:00:00:01
+              masquerade: {}
+              model: virtio
+              name: default
+            networkInterfaceMultiqueue: true
+            rng: {}
+          features:
+            acpi: {}
+            smm:
+              enabled: true
+          firmware:
+            bootloader:
+              efi: {}
+          machine:
+            type: pc-q35-rhel9.2.0
+          memory:
+            guest: 2Gi
+          resources: {}
+        networks:
+        - name: default
+          pod: {}
+        terminationGracePeriodSeconds: 180
+        volumes:
+        - dataVolume:
+            name: rhel9-secret-blackbird
+          name: rootdisk
+        - cloudInitConfigDrive:
+            userData: |-
+              #cloud-config
+              user: cloud-user
+              password: 83px-kcut-honk
+              chpasswd: { expire: False }
+          name: cloudinitdisk
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2023-11-21T13:33:10Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: null
+      message: 'cannot migrate VMI: PVC rhel9-secret-blackbird is not shared, live
+        migration requires that all PVCs must be shared (using ReadWriteMany access
+        mode)'
+      reason: DisksNotLiveMigratable
+      status: "False"
+      type: LiveMigratable
+    - lastProbeTime: "2023-11-21T13:33:24Z"
+      lastTransitionTime: null
+      status: "True"
+      type: AgentConnected
+    created: true
+    desiredGeneration: 1
+    observedGeneration: 1
+    printableStatus: Running
+    ready: true
+    volumeSnapshotStatuses:
+    - enabled: false
+      name: rootdisk
+      reason: 'No VolumeSnapshotClass: Volume snapshots are not configured for this
+        StorageClass [crc-csi-hostpath-provisioner] [rootdisk]'
+    - enabled: false
+      name: cloudinitdisk
+      reason: Snapshot is not supported for this volumeSource type [cloudinitdisk]
+kind: List
+metadata:
+  resourceVersion: ""
